@@ -615,6 +615,7 @@ type topUpDataPackageResp struct {
 	} `json:"key"`
 }
 
+// newTopUpDataPackageReq creates a new topUpDataPackageReq from a TopUpDataPackageReq.
 func newTopUpDataPackageReq(t *TopUpDataPackageReq) (*topUpDataPackageReq, error) {
 	if t == nil {
 		return nil, errors.New("newTopUpDataPackageReq: TopUpDataPackageReq must not be nil")
@@ -632,6 +633,7 @@ func newTopUpDataPackageReq(t *TopUpDataPackageReq) (*topUpDataPackageReq, error
 	}, nil
 }
 
+// TopUpDataPackage tops up a data package.
 func (c *Client) TopUpDataPackage(ctx context.Context, req *TopUpDataPackageReq) (*TopUpDataPackageTx, error) {
 	r, err := newTopUpDataPackageReq(req)
 	if err != nil {
