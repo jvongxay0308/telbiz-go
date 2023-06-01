@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+// ErrInsufficientFunds is returned when the client
+// does not have enough funds to send a message.
+var ErrInsufficientFunds = errors.New("insufficient funds")
+
 const (
 	// base URL of the Telbiz API
 	baseURL = "https://api.telbiz.la/api"
@@ -84,13 +88,39 @@ func (c *Client) call(ctx context.Context, req *http.Request, out any) error {
 
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
-		return fmt.Errorf("io.ReadAll: %w", err)
+		return fmt.Errorf("c.call: io.ReadAll: %w", err)
+	}
+
+	if r.StatusCode >= 400 && r.StatusCode < 500 {
+		ierr := new(apiErr)
+		if err := json.Unmarshal(data, &ierr); err != nil {
+			return fmt.Errorf("c.call: json.Unmarshal: %w", err)
+		}
+
+		switch ierr.Code {
+		case "CREDIT_NOT_SUFFICIENT":
+			return fmt.Errorf("c.call: %w", ErrInsufficientFunds)
+		default:
+			return ierr
+		}
 	}
 
 	if err := json.Unmarshal(data, &out); err != nil {
-		return fmt.Errorf("json.Unmarshal: %w", err)
+		return fmt.Errorf("c.call: json.Unmarshal: %w", err)
 	}
 	return nil
+}
+
+// apiErr is the error returned by the Telbiz API.
+type apiErr struct {
+	Success bool   `json:"success"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	Detail  string `json:"detail"`
+}
+
+func (e *apiErr) Error() string {
+	return fmt.Sprintf("APIErr: %s: %s", e.Code, e.Message)
 }
 
 // injectHeader injects the required headers into the request.
