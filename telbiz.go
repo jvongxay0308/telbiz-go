@@ -253,6 +253,9 @@ type sendSMSResp struct {
 
 // newSendSMSReq creates a new sendSMSReq from a Message.
 func newSendSMSReq(m *Message) (*sendSMSReq, error) {
+	if m == nil {
+		return nil, errors.New("newSendSMSReq: Message must not be nil")
+	}
 	if err := validateTitle(m.Title); err != nil {
 		return nil, err
 	}
@@ -373,6 +376,9 @@ type topUpBalanceResp struct {
 
 // newTopUpBalanceReq creates a new topUpBalanceReq from a TopUpBalance.
 func newTopUpBalanceReq(t *TopUpBalanceReq) (*topUpBalanceReq, error) {
+	if t == nil {
+		return nil, errors.New("newTopUpBalanceReq: TopUpBalanceReq must not be nil")
+	}
 	if err := validatePhoneNumber(t.To); err != nil {
 		return nil, err
 	}
