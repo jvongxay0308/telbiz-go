@@ -333,9 +333,18 @@ func (c *Client) sendSMS(ctx context.Context, m *sendSMSReq) (*sendSMSResp, erro
 	return resp, nil
 }
 
-// TopUpBalance tops up the balance of a phone number.
-type TopUpBalance struct {
-	// ID is the ID of the top up transaction
+// TopUpBalanceReq tops up the balance of a phone number.
+type TopUpBalanceReq struct {
+	// To is a phone number in the format of 20xxxxxxxx or 30xxxxxxx
+	To string
+	// Amount is the amount to topup in LAK
+	Amount int64
+}
+
+// TopUpBalanceTx is the transaction for TopUpBalance.
+// it is returned when TopUpBalance is successful.
+type TopUpBalanceTx struct {
+	// ID is the ID of the top up transaction returned by the Telbiz API.
 	ID string
 	// To is a phone number in the format of 20xxxxxxxx or 30xxxxxxx
 	To string
@@ -363,7 +372,7 @@ type topUpBalanceResp struct {
 }
 
 // newTopUpBalanceReq creates a new topUpBalanceReq from a TopUpBalance.
-func newTopUpBalanceReq(t *TopUpBalance) (*topUpBalanceReq, error) {
+func newTopUpBalanceReq(t *TopUpBalanceReq) (*topUpBalanceReq, error) {
 	if err := validatePhoneNumber(t.To); err != nil {
 		return nil, err
 	}
@@ -380,7 +389,7 @@ func newTopUpBalanceReq(t *TopUpBalance) (*topUpBalanceReq, error) {
 }
 
 // TopUpBalance tops up the balance of a phone number.
-func (c *Client) TopUpBalance(ctx context.Context, r *TopUpBalance) (*TopUpBalance, error) {
+func (c *Client) TopUpBalance(ctx context.Context, r *TopUpBalanceReq) (*TopUpBalanceTx, error) {
 	req, err := newTopUpBalanceReq(r)
 	if err != nil {
 		return nil, err
@@ -390,7 +399,7 @@ func (c *Client) TopUpBalance(ctx context.Context, r *TopUpBalance) (*TopUpBalan
 	if err != nil {
 		return nil, err
 	}
-	return &TopUpBalance{
+	return &TopUpBalanceTx{
 		ID:     resp.Key.RangeKey,
 		To:     r.To,
 		Amount: r.Amount,
