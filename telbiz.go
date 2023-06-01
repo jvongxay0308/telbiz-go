@@ -217,6 +217,7 @@ const (
 	Unknown   = "Unknown"
 )
 
+// Message is a message to send to a phone number.
 type Message struct {
 	// To is a phone number in the format of 20xxxxxxxx or 30xxxxxxx
 	To string
@@ -227,6 +228,7 @@ type Message struct {
 	Body  string
 }
 
+// SMS is the response for SendSMS.
 type SMS struct {
 	MessageID string `json:"messageId"`
 }
