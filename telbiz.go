@@ -577,3 +577,101 @@ func (c *Client) DataPackages(ctx context.Context, _ *DataPackagesReq) (*DataPac
 		Packages: newDataPackages(resp),
 	}, nil
 }
+
+// TopUpDataPackageReq is the request for TopUpDataPackageReq
+// to purchase a data package.
+type TopUpDataPackageReq struct {
+	// PackageID is the ID of the data package to purchase.
+	PackageID string
+	// To is a phone number in the format of 20xxxxxxxx or 30xxxxxxx
+	To string
+}
+
+// TopUpDataPackageTx is the transaction for TopUpDataPackage.
+// it is returned when TopUpDataPackage is successful.
+type TopUpDataPackageTx struct {
+	// ID is the ID of the top up transaction returned by the Telbiz API.
+	ID string
+	// PackageID is the ID of the data package to purchase.
+	PackageID string
+	// To is a phone number in the format of 20xxxxxxxx or 30xxxxxxx
+	To string
+}
+
+type topUpDataPackageReq struct {
+	Phone     string `json:"phone"`
+	PackageID string `json:"packageId"`
+}
+
+type topUpDataPackageResp struct {
+	Status struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Success bool   `json:"success"`
+		Detail  string `json:"detail"`
+	} `json:"response"`
+
+	Key struct {
+		PartitionKey string `json:"partitionKey"`
+		RangeKey     string `json:"rangeKey"`
+	} `json:"key"`
+}
+
+func newTopUpDataPackageReq(t *TopUpDataPackageReq) (*topUpDataPackageReq, error) {
+	if t == nil {
+		return nil, errors.New("newTopUpDataPackageReq: TopUpDataPackageReq must not be nil")
+	}
+	if err := validatePhoneNumber(t.To); err != nil {
+		return nil, err
+	}
+	if t.PackageID == "" {
+		return nil, errors.New("package ID must not be empty")
+	}
+
+	return &topUpDataPackageReq{
+		Phone:     t.To,
+		PackageID: t.PackageID,
+	}, nil
+}
+
+func (c *Client) TopUpDataPackage(ctx context.Context, req *TopUpDataPackageReq) (*TopUpDataPackageTx, error) {
+	r, err := newTopUpDataPackageReq(req)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.topUpDataPackage(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	return &TopUpDataPackageTx{
+		ID:        resp.Key.RangeKey,
+		PackageID: r.PackageID,
+		To:        r.Phone,
+	}, nil
+}
+
+func (c *Client) topUpDataPackage(ctx context.Context, r *topUpDataPackageReq) (*topUpDataPackageResp, error) {
+	url := baseURL + "/v1/DataService/newtransaction"
+
+	payload, err := json.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
+	}
+	req.Header.Set("Authorization", c.bearerToken())
+
+	resp := new(topUpDataPackageResp)
+	if err := c.call(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if !resp.Status.Success {
+		return nil, fmt.Errorf("c.topUpDataPackage: %s %s", resp.Status.Code, resp.Status.Message)
+	}
+
+	return resp, nil
+}
