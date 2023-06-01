@@ -302,3 +302,92 @@ func (c *Client) sendSMS(ctx context.Context, m *sendSMSReq) (*sendSMSResp, erro
 
 	return resp, nil
 }
+
+// TopUpBalance tops up the balance of a phone number.
+type TopUpBalance struct {
+	// ID is the ID of the top up transaction
+	ID string
+	// To is a phone number in the format of 20xxxxxxxx or 30xxxxxxx
+	To string
+	// Amount is the amount to topup in LAK
+	Amount int64
+}
+
+type topUpBalanceReq struct {
+	Phone  string `json:"phone"`
+	Amount int64  `json:"amount"`
+}
+
+type topUpBalanceResp struct {
+	Status struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Success bool   `json:"success"`
+		Detail  string `json:"detail"`
+	} `json:"response"`
+
+	Key struct {
+		PartitionKey string `json:"partitionKey"`
+		RangeKey     string `json:"rangeKey"`
+	} `json:"key"`
+}
+
+// newTopUpBalanceReq creates a new topUpBalanceReq from a TopUpBalance.
+func newTopUpBalanceReq(t *TopUpBalance) (*topUpBalanceReq, error) {
+	if err := validatePhoneNumber(t.To); err != nil {
+		return nil, err
+	}
+	switch t.Amount / 1000 {
+	case 5, 10, 20, 50, 100, 200:
+	default:
+		return nil, errors.New("amount must be one of the following: [5000, 10000, 20000, 50000, 100000, 200000]")
+	}
+
+	return &topUpBalanceReq{
+		Phone:  t.To,
+		Amount: t.Amount,
+	}, nil
+}
+
+// TopUpBalance tops up the balance of a phone number.
+func (c *Client) TopUpBalance(ctx context.Context, r *TopUpBalance) (*TopUpBalance, error) {
+	req, err := newTopUpBalanceReq(r)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.topUpBalance(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return &TopUpBalance{
+		ID:     resp.Key.RangeKey,
+		To:     r.To,
+		Amount: r.Amount,
+	}, nil
+}
+
+func (c *Client) topUpBalance(ctx context.Context, r *topUpBalanceReq) (*topUpBalanceResp, error) {
+	url := baseURL + "/v1/topupservice/newtransaction"
+
+	payload, err := json.Marshal(r)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
+	}
+	req.Header.Set("Authorization", c.bearerToken())
+
+	resp := new(topUpBalanceResp)
+	if err := c.call(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if !resp.Status.Success {
+		return nil, fmt.Errorf("c.topUpBalance: %s %s", resp.Status.Code, resp.Status.Message)
+	}
+
+	return resp, nil
+}
