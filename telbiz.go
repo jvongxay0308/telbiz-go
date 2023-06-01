@@ -72,6 +72,7 @@ func NewClient(ctx context.Context, apiKey, secretKey string) (_ *Client, err er
 // call makes an HTTP request and unmarshals the response into out.
 func (c *Client) call(ctx context.Context, req *http.Request, out any) error {
 	req2 := req.Clone(ctx)
+	req2.Header.Set("Authorization", c.bearerToken())
 	injectHeader(req2)
 
 	r, err := c.hc.Do(req2)
@@ -320,7 +321,6 @@ func (c *Client) sendSMS(ctx context.Context, m *sendSMSReq) (*sendSMSResp, erro
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
 	}
-	req.Header.Set("Authorization", c.bearerToken())
 
 	resp := new(sendSMSResp)
 	if err := c.call(ctx, req, &resp); err != nil {
@@ -409,7 +409,6 @@ func (c *Client) topUpBalance(ctx context.Context, r *topUpBalanceReq) (*topUpBa
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
 	}
-	req.Header.Set("Authorization", c.bearerToken())
 
 	resp := new(topUpBalanceResp)
 	if err := c.call(ctx, req, &resp); err != nil {
@@ -566,7 +565,6 @@ func (c *Client) DataPackages(ctx context.Context, _ *DataPackagesReq) (*DataPac
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
 	}
-	req.Header.Set("Authorization", c.bearerToken())
 
 	resp := make([]*dataPackageResp, 0)
 	if err := c.call(ctx, req, &resp); err != nil {
@@ -663,7 +661,6 @@ func (c *Client) topUpDataPackage(ctx context.Context, r *topUpDataPackageReq) (
 	if err != nil {
 		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
 	}
-	req.Header.Set("Authorization", c.bearerToken())
 
 	resp := new(topUpDataPackageResp)
 	if err := c.call(ctx, req, &resp); err != nil {
