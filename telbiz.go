@@ -421,3 +421,159 @@ func (c *Client) topUpBalance(ctx context.Context, r *topUpBalanceReq) (*topUpBa
 
 	return resp, nil
 }
+
+// DataPackagesReq is the request for DataPackages.
+type DataPackagesReq struct{}
+
+// DataPackagesResp is the response for DataPackages.
+type DataPackagesResp struct {
+	Packages []*DataPackage `json:"packages"`
+}
+
+// DataPackage is a data package available for purchase.
+type DataPackage struct {
+	// ID is the ID of the data package.
+	// it is used to purchase the data package.
+	ID string `json:"id"`
+	// DisplayName is the display name of the data package.
+	DisplayName string `json:"name"`
+	// Description is the description of the data package.
+	Description string `json:"description"`
+	// Price is the price of the data package in LAK.
+	Price int64 `json:"price"`
+	// NSs is a slice of DataPackageNS for each ISP.
+	NSs []DataPackageNS `json:"nss"`
+}
+
+// DataPackageNS is a data package for a specific ISP.
+type DataPackageNS struct {
+	// ISP is the Internet Service Provider of the data package.
+	ISP    string `json:"isp"` // [LTC, TPLUS, UNITEL, ETL, BEST]
+	NSCode string `json:"nsCode"`
+	NMCode string `json:"nmCode"`
+	// AmountGB is the amount of data you get in GB.
+	AmountGB int64 `json:"amountGB"`
+	// DurationDays is usable duration of the data package in days.
+	DurationDays int `json:"durationDays"`
+}
+
+// dataPackageResp is the response for DataPackages from the Telbiz API.
+type dataPackageResp struct {
+	Name           string `json:"name"`
+	ID             string `json:"id"`
+	Type           string `json:"type"`
+	Description    string `json:"description"`
+	LTCNSCode      string `json:"ltcNSCode"`
+	LTCNMCode      string `json:"ltcNMCode"`
+	TPlusNSCode    string `json:"tPlusNSCode"`
+	TPlusNMCode    string `json:"tPlusNMCode"`
+	UnitelNSCode   string `json:"unitelNSCode"`
+	UnitelNMCode   string `json:"unitelNMCode"`
+	ETLNSCode      string `json:"etlNSCode"`
+	ETLNMCode      string `json:"etlNMCode"`
+	BestNSCode     string `json:"bestNSCode"`
+	BestNMCode     string `json:"bestNMCode"`
+	Price          int64  `json:"price"`
+	LTCNSAmount    int64  `json:"ltcNSAmount"`
+	LTCNMAmount    int64  `json:"ltcNMAmount"`
+	TplusNSAmount  int64  `json:"tplusNSAmount"`
+	TplusNMAmount  int64  `json:"tplusNMAmount"`
+	UnitelNSAmount int64  `json:"unitelNSAmount"`
+	UnitelNMAmount int64  `json:"unitelNMAmount"`
+	EtlNSAmount    int64  `json:"etlNSAmount"`
+	EtlNMAmount    int64  `json:"etlNMAmount"`
+	LTCNSDays      int    `json:"ltcNSDays"`
+	LTCNMDays      int    `json:"ltcNMDays"`
+	TplusNSDays    int    `json:"tplusNSDays"`
+	TplusNMDays    int    `json:"tplusNMDays"`
+	ETLNSDays      int    `json:"etlNSDays"`
+	ETLNMDays      int    `json:"etlNMDays"`
+	UnitelNSDays   int    `json:"unitelNSDays"`
+	UnitelNMDays   int    `json:"unitelNMDays"`
+}
+
+// newDataPackage creates a new DataPackage from a dataPackageResp.
+func newDataPackage(dp *dataPackageResp) *DataPackage {
+	p := &DataPackage{
+		ID:          dp.ID,
+		DisplayName: dp.Name,
+		Description: dp.Description,
+		Price:       dp.Price,
+		NSs:         []DataPackageNS{},
+	}
+
+	if dp.ETLNSCode != "" {
+		p.NSs = append(p.NSs, DataPackageNS{
+			ISP:          "ETL",
+			NSCode:       dp.ETLNSCode,
+			NMCode:       dp.ETLNMCode,
+			AmountGB:     dp.EtlNSAmount / 1024,
+			DurationDays: dp.ETLNSDays,
+		})
+	}
+	if dp.LTCNSCode != "" {
+		p.NSs = append(p.NSs, DataPackageNS{
+			ISP:          "LTC",
+			NSCode:       dp.LTCNSCode,
+			NMCode:       dp.LTCNMCode,
+			AmountGB:     dp.LTCNSAmount / 1024,
+			DurationDays: dp.LTCNSDays,
+		})
+	}
+	if dp.TPlusNSCode != "" {
+		p.NSs = append(p.NSs, DataPackageNS{
+			ISP:          "TPLUS",
+			NSCode:       dp.TPlusNSCode,
+			NMCode:       dp.TPlusNMCode,
+			AmountGB:     dp.TplusNSAmount / 1024,
+			DurationDays: dp.TplusNSDays,
+		})
+	}
+	if dp.UnitelNSCode != "" {
+		p.NSs = append(p.NSs, DataPackageNS{
+			ISP:          "UNITEL",
+			NSCode:       dp.UnitelNSCode,
+			NMCode:       dp.UnitelNMCode,
+			AmountGB:     dp.UnitelNSAmount / 1024,
+			DurationDays: dp.UnitelNSDays,
+		})
+	}
+	if dp.BestNSCode != "" {
+		p.NSs = append(p.NSs, DataPackageNS{
+			ISP:    "BEST",
+			NSCode: dp.BestNSCode,
+			NMCode: dp.BestNMCode,
+		})
+	}
+
+	return p
+}
+
+// newDataPackages creates a slice of DataPackages from a slice of dataPackageResp.
+func newDataPackages(packages []*dataPackageResp) []*DataPackage {
+	p := make([]*DataPackage, len(packages))
+	for i, dp := range packages {
+		p[i] = newDataPackage(dp)
+	}
+	return p
+}
+
+// DataPackages lists all available data packages.
+func (c *Client) DataPackages(ctx context.Context, _ *DataPackagesReq) (*DataPackagesResp, error) {
+	url := baseURL + "/v1/DataService/listdatapackage"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("http.NewRequestWithContext: %w", err)
+	}
+	req.Header.Set("Authorization", c.bearerToken())
+
+	resp := make([]*dataPackageResp, 0)
+	if err := c.call(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+
+	return &DataPackagesResp{
+		Packages: newDataPackages(resp),
+	}, nil
+}
